@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Video to Audio Converter</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f4f4f9; }
+        input, button { margin: 10px; padding: 10px; }
+        #progressContainer { display: none; margin: 20px auto; width: 80%; background: #ddd; border-radius: 20px; }
+        #progressBar { width: 0; height: 20px; background: #4caf50; border-radius: 20px; }
+        #status { margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Online Video to Audio Converter</h1>
+    <input type="file" id="videoFile" accept="video/*">
+    <button onclick="convertToAudio()">Convert to Audio</button>
+
+    <div id="progressContainer">
+        <div id="progressBar"></div>
+    </div>
+    <p id="status"></p>
+    <a id="downloadLink" style="display:none;" download="audio.mp3">Download Audio</a>
+
+    <script>
+        function convertToAudio() {
+            const videoFile = document.getElementById('videoFile').files[0];
+            if (!videoFile) {
+                alert('Please select a video file.');
+                return;
+            }
+
+            document.getElementById('status').textContent = 'Processing...';
+            document.getElementById('progressContainer').style.display = 'block';
+            const progressBar = document.getElementById('progressBar');
+
+            const videoElement = document.createElement('video');
+            videoElement.src = URL.createObjectURL(videoFile);
+            videoElement.muted = true;
+
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaElementSource(videoElement);
+            const destination = audioContext.createMediaStreamDestination();
+            source.connect(destination);
+            source.connect(audioContext.destination);
+
+            const recorder = new MediaRecorder(destination.stream);
+            const chunks = [];
+
+            recorder.ondataavailable = event => chunks.push(event.data);
+            recorder.onstop = () => {
+                const audioBlob = new Blob(chunks, { type: 'audio/mp3' });
+                const audioURL = URL.createObjectURL(audioBlob);
+                const downloadLink = document.getElementById('downloadLink');
+                downloadLink.href = audioURL;
+                downloadLink.style.display = 'inline';
+                document.getElementById('status').textContent = 'Conversion Complete!';
+                progressBar.style.width = '100%';
+            };
+
+            recorder.start();
+            videoElement.play();
+
+            const updateProgress = () => {
+                const progress = (videoElement.currentTime / videoElement.duration) * 100;
+                progressBar.style.width = progress + '%';
+                if (!videoElement.paused) {
+                    requestAnimationFrame(updateProgress);
+                }
+            };
+
+            videoElement.onplay = () => requestAnimationFrame(updateProgress);
+            videoElement.onended = () => {
+                recorder.stop();
+                audioContext.close();
+            };
+        }
+    </script>
+</body>
+</html>
